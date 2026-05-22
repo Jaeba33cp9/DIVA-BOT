@@ -9,14 +9,13 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// حط Channel ID هنا
+// Channel ID
 const CHANNEL_ID = '1498049200334700584';
 
-client.once('clientReady', async () => {
+client.once('ready', async () => {
   console.log(`${client.user.tag} online`);
 
   try {
-
     const channel = await client.channels.fetch(CHANNEL_ID);
 
     console.log('CHANNEL:', channel);
@@ -31,9 +30,7 @@ client.once('clientReady', async () => {
     console.log('MESSAGE SENT');
 
   } catch (error) {
-
     console.log('CHANNEL ERROR:', error);
-
   }
 });
 
