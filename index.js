@@ -24,6 +24,11 @@ const client = new Client({
 // ================= CONFIG =================
 const TOKEN = process.env.TOKEN;
 
+if (!TOKEN) {
+  console.log('❌ TOKEN is missing! Set it in Railway environment variables.');
+  process.exit(1);
+}
+
 const GUILD_ID = '1329730058503323728';
 const VC_ID = '1501394092884492378';
 
@@ -32,47 +37,56 @@ const GAME_MODE_ROLE_ID = '1504357738069885019';
 
 // الرولات المسموح بها
 const ALLOWED_GAME_ROLES = {
-  '・〢among us': '1498071614225387660',
-  '・〢valorant': '1498071615685132368',
-  '・〢𝗣𝗨𝗕𝗚': '1498071617828294727',
-  '・〢𝗚𝗧𝗔 𝗩': '1498071618306441236',
-  '・〢Brawlhalla': '1504330938237059123',
-  '・〢REPO': '1505536597897117728',
-  '・〢𝗥𝗢𝗕𝗟𝗢𝗫': '1498384166398722129',
+  '・〢among us':  '1498071614225387660',
+  '・〢valorant':  '1498071615685132368',
+  '・〢𝗣𝗨𝗕𝗚':     '1498071617828294727',
+  '・〢𝗚𝗧𝗔 𝗩':    '1498071618306441236',
+  '・〢Brawlhalla':'1504330938237059123',
+  '・〢REPO':      '1505536597897117728',
+  '・〢𝗥𝗢𝗕𝗟𝗢𝗫':   '1498384166398722129',
   '・〢EFOOTBALL': '1498744954183356649',
   '・〢FREE FIRE': '1498744976576741507'
 };
 
+// ================= REJOIN FLAG =================
+let isRejoining = false;
+
 // ================= JOIN VC =================
 function joinVC() {
 
-  const guild = client.guilds.cache.get(GUILD_ID);
+  try {
 
-  if (!guild) {
-    console.log('❌ Guild not found');
-    return;
+    const guild = client.guilds.cache.get(GUILD_ID);
+
+    if (!guild) {
+      console.log('❌ Guild not found');
+      return;
+    }
+
+    const channel = guild.channels.cache.get(VC_ID);
+
+    if (!channel) {
+      console.log('❌ Voice channel not found');
+      return;
+    }
+
+    // إلا كان already connected
+    const existingConnection = getVoiceConnection(GUILD_ID);
+
+    if (existingConnection) return;
+
+    joinVoiceChannel({
+      channelId: VC_ID,
+      guildId: GUILD_ID,
+      adapterCreator: guild.voiceAdapterCreator,
+      selfDeaf: false
+    });
+
+    console.log('🔊 Joined VC');
+
+  } catch (error) {
+    console.log('❌ joinVC Error:', error);
   }
-
-  const channel = guild.channels.cache.get(VC_ID);
-
-  if (!channel) {
-    console.log('❌ Voice channel not found');
-    return;
-  }
-
-  // إلا كان already connected
-  const existingConnection = getVoiceConnection(GUILD_ID);
-
-  if (existingConnection) return;
-
-  joinVoiceChannel({
-    channelId: VC_ID,
-    guildId: GUILD_ID,
-    adapterCreator: guild.voiceAdapterCreator,
-    selfDeaf: false
-  });
-
-  console.log('🔊 Joined VC');
 }
 
 // ================= READY =================
@@ -89,11 +103,16 @@ client.on('voiceStateUpdate', (oldState, newState) => {
   // واش البوت خرج
   if (oldState.id === client.user.id && !newState.channelId) {
 
+    if (isRejoining) return;
+
     console.log('⚠️ Bot disconnected → Rejoining...');
+
+    isRejoining = true;
 
     setTimeout(() => {
       joinVC();
-    }, 3000);
+      isRejoining = false;
+    }, 5000);
   }
 });
 
@@ -193,6 +212,28 @@ client.on('messageCreate', async (message) => {
 
     console.log('❌ Message Error:', error);
   }
+});
+
+// ================= GRACEFUL SHUTDOWN (Railway SIGTERM) =================
+process.on('SIGTERM', () => {
+  console.log('🛑 SIGTERM received → Shutting down gracefully...');
+  client.destroy();
+  process.exit(0);
+});
+
+process.on('SIGINT', () => {
+  console.log('🛑 SIGINT received → Shutting down gracefully...');
+  client.destroy();
+  process.exit(0);
+});
+
+// ================= UNHANDLED ERRORS =================
+process.on('unhandledRejection', (error) => {
+  console.log('❌ Unhandled Rejection:', error);
+});
+
+process.on('uncaughtException', (error) => {
+  console.log('❌ Uncaught Exception:', error);
 });
 
 // ================= LOGIN =================
