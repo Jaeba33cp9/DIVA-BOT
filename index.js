@@ -1,6 +1,3 @@
-# Discord Bot Code (Fixed)
-
-```js
 require('dotenv').config();
 
 const {
@@ -9,8 +6,12 @@ const {
   PermissionsBitField
 } = require('discord.js');
 
-const { joinVoiceChannel } = require('@discordjs/voice');
+const {
+  joinVoiceChannel,
+  getVoiceConnection
+} = require('@discordjs/voice');
 
+// ================= CLIENT =================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
@@ -22,13 +23,14 @@ const client = new Client({
 
 // ================= CONFIG =================
 const TOKEN = process.env.TOKEN;
+
 const GUILD_ID = '1329730058503323728';
 const VC_ID = '1501394092884492378';
 
-// ================= GAME MODE ROLE =================
+// رول GAME MODE
 const GAME_MODE_ROLE_ID = '1504357738069885019';
 
-// ================= ALLOWED GAME ROLES =================
+// الرولات المسموح بها
 const ALLOWED_GAME_ROLES = {
   '・〢among us': '1498071614225387660',
   '・〢valorant': '1498071615685132368',
@@ -43,39 +45,40 @@ const ALLOWED_GAME_ROLES = {
 
 // ================= JOIN VC =================
 function joinVC() {
+
   const guild = client.guilds.cache.get(GUILD_ID);
 
   if (!guild) {
-    console.log('❌ GUILD NOT FOUND');
+    console.log('❌ Guild not found');
     return;
   }
 
   const channel = guild.channels.cache.get(VC_ID);
 
   if (!channel) {
-    console.log('❌ VC NOT FOUND');
+    console.log('❌ Voice channel not found');
     return;
   }
 
-  try {
-    joinVoiceChannel({
-      channelId: VC_ID,
-      guildId: GUILD_ID,
-      adapterCreator: guild.voiceAdapterCreator,
-      selfDeaf: false,
-      selfMute: false
-    });
+  // إلا كان already connected
+  const existingConnection = getVoiceConnection(GUILD_ID);
 
-    console.log('🔊 JOINED VC');
+  if (existingConnection) return;
 
-  } catch (error) {
-    console.log('❌ VC ERROR:', error.message);
-  }
+  joinVoiceChannel({
+    channelId: VC_ID,
+    guildId: GUILD_ID,
+    adapterCreator: guild.voiceAdapterCreator,
+    selfDeaf: false
+  });
+
+  console.log('🔊 Joined VC');
 }
 
 // ================= READY =================
 client.once('ready', () => {
-  console.log(`✅ ${client.user.tag} ONLINE`);
+
+  console.log(`✅ Logged in as ${client.user.tag}`);
 
   joinVC();
 });
@@ -83,11 +86,10 @@ client.once('ready', () => {
 // ================= AUTO REJOIN =================
 client.on('voiceStateUpdate', (oldState, newState) => {
 
-  if (oldState.id !== client.user.id) return;
+  // واش البوت خرج
+  if (oldState.id === client.user.id && !newState.channelId) {
 
-  if (!newState.channelId) {
-
-    console.log('⚠️ BOT LEFT VC → REJOINING...');
+    console.log('⚠️ Bot disconnected → Rejoining...');
 
     setTimeout(() => {
       joinVC();
@@ -103,9 +105,12 @@ client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     if (!message.guild) return;
 
-    // لازم الرسالة تبدا بـ @
+    // خاص الرسالة تبدا بـ @
     if (!message.content.startsWith('@')) return;
 
+    // مثال:
+    // @・〢valorant
+    // @everyone
     const roleName = message.content.slice(1).trim();
 
     if (!roleName) return;
@@ -114,90 +119,81 @@ client.on('messageCreate', async (message) => {
 
     if (!member) return;
 
-    // ================= ADMIN CHECK =================
+    // ================= ADMIN =================
     const isAdmin = member.permissions.has(
       PermissionsBitField.Flags.Administrator
     );
 
-    // ================= GAME MODE CHECK =================
-    const hasGameModeRole = member.roles.cache.has(
+    // ================= GAME MODE =================
+    const hasGameMode = member.roles.cache.has(
       GAME_MODE_ROLE_ID
     );
 
-    // ================= NO PERMISSION =================
-    if (!isAdmin && !hasGameModeRole) return;
+    // ماعندوش صلاحية
+    if (!isAdmin && !hasGameMode) return;
 
     // ================= EVERYONE =================
     if (roleName.toLowerCase() === 'everyone') {
 
+      // غير الأدمن
       if (!isAdmin) {
-        await message.reply('❌ ONLY ADMIN CAN TAG EVERYONE');
+        await message.reply({
+          content: '❌ Only admins can tag everyone.'
+        });
+
         return;
       }
 
-      await message.channel.send('@everyone');
+      await message.channel.send({
+        content: '@everyone'
+      });
+
       return;
     }
 
-    // ================= ADMIN CAN TAG ANY ROLE =================
+    // ================= ADMIN TAG ANY ROLE =================
     if (isAdmin) {
 
       const anyRole = message.guild.roles.cache.find(
-        role => role.name.toLowerCase() === roleName.toLowerCase()
+        role =>
+          role.name.toLowerCase() === roleName.toLowerCase()
       );
 
       if (!anyRole) return;
 
-      await message.channel.send(`${anyRole}`);
+      await message.channel.send({
+        content: `${anyRole}`
+      });
+
       return;
     }
 
-    // ================= GAME MODE ROLES =================
-    const roleId = Object.keys(ALLOWED_GAME_ROLES).find(
-      name => name.toLowerCase() === roleName.toLowerCase()
-    );
+    // ================= GAME MODE TAG =================
+    let targetRoleId = null;
 
-    if (!roleId) return;
+    for (const [name, id] of Object.entries(ALLOWED_GAME_ROLES)) {
 
-    const role = message.guild.roles.cache.get(
-      ALLOWED_GAME_ROLES[roleId]
-    );
+      if (name.toLowerCase() === roleName.toLowerCase()) {
+        targetRoleId = id;
+        break;
+      }
+    }
+
+    if (!targetRoleId) return;
+
+    const role = message.guild.roles.cache.get(targetRoleId);
 
     if (!role) return;
 
-    await message.channel.send(`${role}`);
+    await message.channel.send({
+      content: `${role}`
+    });
 
   } catch (error) {
-    console.log('❌ MESSAGE ERROR:', error);
+
+    console.log('❌ Message Error:', error);
   }
 });
 
 // ================= LOGIN =================
 client.login(TOKEN);
-```
-
-# IMPORTANT
-
-## Install packages
-
-```bash
-npm install discord.js @discordjs/voice dotenv
-```
-
-## Enable these intents in Discord Developer Portal
-
-* MESSAGE CONTENT INTENT
-* SERVER MEMBERS INTENT
-* PRESENCE INTENT
-
-## Bot role permissions
-
-Make sure the bot role has:
-
-* Administrator
-  OR
-* Send Messages
-* Mention Everyone
-* View Channels
-* Connect
-* Speak
