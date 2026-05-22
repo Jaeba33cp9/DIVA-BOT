@@ -2,58 +2,78 @@ require('dotenv').config();
 
 const {
   Client,
-  GatewayIntentBits
+  GatewayIntentBits,
+  REST,
+  Routes,
+  SlashCommandBuilder
 } = require('discord.js');
 
+const { joinVoiceChannel } = require('@discordjs/voice');
+
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildVoiceStates
+  ]
 });
 
-// Channel ID
-const CHANNEL_ID = '1498049200334700584';
+// ================= IDs =================
+const GUILD_ID = "1329730058503323728";
+const VC_ID = "1501394092884492378";
 
+// ================= SLASH COMMAND =================
+const commands = [
+  new SlashCommandBuilder()
+    .setName('diva')
+    .setDescription('DIVA BOT 🔥')
+].map(cmd => cmd.toJSON());
+
+const rest = new REST({ version: '10' }).setToken(process.env.TOKEN);
+
+// ================= READY =================
 client.once('ready', async () => {
   console.log(`${client.user.tag} online`);
 
   try {
-    const channel = await client.channels.fetch(CHANNEL_ID);
+    // Register slash command (fast)
+    await rest.put(
+      Routes.applicationGuildCommands(client.user.id, GUILD_ID),
+      { body: commands }
+    );
 
-    console.log('CHANNEL:', channel);
+    console.log('Slash Command Registered ✅');
+
+    // JOIN VC
+    const channel = client.channels.cache.get(VC_ID);
 
     if (!channel) {
-      console.log('CHANNEL NOT FOUND');
-      return;
+      return console.log("❌ VC NOT FOUND - check ID");
     }
 
-    await channel.send('DIVA BOT ONLINE 🔥');
+    joinVoiceChannel({
+      channelId: channel.id,
+      guildId: channel.guild.id,
+      adapterCreator: channel.guild.voiceAdapterCreator
+    });
 
-    console.log('MESSAGE SENT');
+    console.log("🔊 BOT JOINED VC SUCCESS");
 
-  } catch (error) {
-    console.log('CHANNEL ERROR:', error);
+  } catch (err) {
+    console.log("ERROR:", err);
   }
 });
 
-// reconnect logs
-client.on('shardDisconnect', () => {
-  console.log('Bot disconnected!');
+// ================= COMMAND =================
+client.on('interactionCreate', async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+
+  if (interaction.commandName === 'diva') {
+    await interaction.reply('🔥 BOT IS WORKING');
+  }
 });
 
-client.on('shardReconnecting', () => {
-  console.log('Bot reconnecting...');
-});
-
-client.on('shardResume', () => {
-  console.log('Bot resumed connection!');
-});
-
-// anti crash
-process.on('unhandledRejection', error => {
-  console.log('Unhandled Rejection:', error);
-});
-
-process.on('uncaughtException', error => {
-  console.log('Uncaught Exception:', error);
-});
+// ================= CRASH FIX =================
+process.on('unhandledRejection', err => console.log(err));
+process.on('uncaughtException', err => console.log(err));
 
 client.login(process.env.TOKEN);
