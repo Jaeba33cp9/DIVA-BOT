@@ -21,7 +21,8 @@ const client = new Client({
 const TOKEN = process.env.TOKEN;
 const GUILD_ID = "1329730058503323728";
 const VC_ID = "1501394092884492378";
-
+const GUILD_ID = "1405087442964316290";
+const VC_ID = "1433327831038820373";
 // ================= JOIN FUNCTION =================
 function joinVC() {
   const channel = client.channels.cache.get(VC_ID);
