@@ -17,12 +17,12 @@ const client = new Client({
   ]
 });
 
-// ================= CONFIG =================
+// ================ CONFIG =================
 const TOKEN = process.env.TOKEN;
 const GUILD_ID = "1329730058503323728";
 const VC_ID = "1501394092884492378";
 
-// ================= JOIN FUNCTION =================
+// ============= JOIN FUNCTION =============
 function joinVC() {
   const channel = client.channels.cache.get(VC_ID);
 
@@ -40,19 +40,17 @@ function joinVC() {
 // ================= READY =================
 client.once('ready', async () => {
   console.log(`${client.user.tag} online`);
-
   joinVC();
 });
 
-// ================= AUTO REJOIN =================
+// ============= AUTO REJOIN ===============
 client.on('voiceStateUpdate', (oldState, newState) => {
-  // إذا البوت خرج من VC
   if (oldState.member?.user.id === client.user.id) {
     if (!newState.channel) {
       console.log("⚠️ BOT LEFT VC → REJOINING...");
       setTimeout(() => {
         joinVC();
-      }, 3000);
+      }, 10); // 10ms ≈ 0.01s
     }
   }
 });
