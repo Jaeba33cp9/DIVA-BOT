@@ -20,7 +20,7 @@ const client = new Client({
 // ================ CONFIG =================
 const TOKEN = process.env.TOKEN;
 const GUILD_ID = "1329730058503323728";
-const VC_ID = "1501394092884492378";
+const VC_ID = "1503884194827210802";
 
 // ============= JOIN FUNCTION =============
 function joinVC() {
